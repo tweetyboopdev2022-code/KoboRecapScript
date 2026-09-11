@@ -34,6 +34,48 @@ from PIL import Image
 import crop, fxl
 
 
+def have_poppler():
+    return bool(shutil.which('pdfinfo') and shutil.which('pdftoppm'))
+
+
+def page_info(pdf):
+    """Page size in points and the page count, from poppler or pymupdf."""
+    if shutil.which('pdfinfo'):
+        info = subprocess.run(['pdfinfo', pdf], capture_output=True, text=True).stdout
+        m = re.search(r'Page size:\s+([\d.]+) x ([\d.]+)', info)
+        if m:
+            return (float(m.group(1)), float(m.group(2)),
+                    int(re.search(r'Pages:\s+(\d+)', info).group(1)))
+    try:
+        import pymupdf
+    except ImportError:
+        try:
+            import fitz as pymupdf
+        except ImportError:
+            raise SystemExit(
+                'need poppler-utils (pdfinfo, pdftoppm) or pymupdf.\n'
+                '  pip3 install --user pymupdf')
+    with pymupdf.open(pdf) as doc:
+        r = doc[0].rect
+        return r.width, r.height, len(doc)
+
+
+def render_pymupdf(pdf, out_dir, dpi, width, lo, hi):
+    """Render without poppler. Single-process, so the chunking above is what
+    keeps a long book inside one shell call, not the worker fan-out."""
+    try:
+        import pymupdf
+    except ImportError:
+        import fitz as pymupdf
+    zoom = dpi / 72.0
+    with pymupdf.open(pdf) as doc:
+        for i in range(lo, hi + 1):
+            dst = os.path.join(out_dir, 'p-%0*d.png' % (width, i))
+            tmp = dst + '.part'
+            doc[i - 1].get_pixmap(matrix=pymupdf.Matrix(zoom, zoom)).save(tmp, output="png")
+            os.replace(tmp, dst)
+
+
 def render(pdf, out_dir, long_edge=1700, chunk=0, jobs=1):
     """Render the PDF to PNGs, a chunk at a time and only where one is missing.
 
@@ -42,12 +84,7 @@ def render(pdf, out_dir, long_edge=1700, chunk=0, jobs=1):
     directory that survives the call means the work accumulates: run the command
     again and it carries on from the first page that has no PNG yet.
     """
-    info = subprocess.run(['pdfinfo', pdf], capture_output=True, text=True).stdout
-    m = re.search(r'Page size:\s+([\d.]+) x ([\d.]+)', info)
-    if not m:
-        raise SystemExit('could not read page size from %s' % pdf)
-    w, h = float(m.group(1)), float(m.group(2))
-    n = int(re.search(r'Pages:\s+(\d+)', info).group(1))
+    w, h, n = page_info(pdf)
     dpi = max(110, min(400, round(long_edge / (max(w, h) / 72))))
     os.makedirs(out_dir, exist_ok=True)
     width = len(str(n))
@@ -88,20 +125,23 @@ def render(pdf, out_dir, long_edge=1700, chunk=0, jobs=1):
         span = hi - lo + 1
         workers = max(1, min(jobs, span))
         size = -(-span // workers)
-        procs = []
-        for w in range(workers):
-            a = lo + w * size
-            b = min(hi, a + size - 1)
-            if a > hi:
-                break
-            procs.append(subprocess.Popen(
-                ['pdftoppm', '-png', '-r', str(dpi), '-f', str(a), '-l', str(b),
-                 pdf, os.path.join(out_dir, 'p')],
-                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE))
-        for pr in procs:
-            _, err = pr.communicate()
-            if pr.returncode:
-                raise SystemExit('pdftoppm failed: %s' % err.decode('utf-8', 'ignore')[:200])
+        if have_poppler():
+            procs = []
+            for w in range(workers):
+                a = lo + w * size
+                b = min(hi, a + size - 1)
+                if a > hi:
+                    break
+                procs.append(subprocess.Popen(
+                    ['pdftoppm', '-png', '-r', str(dpi), '-f', str(a), '-l', str(b),
+                     pdf, os.path.join(out_dir, 'p')],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE))
+            for pr in procs:
+                _, err = pr.communicate()
+                if pr.returncode:
+                    raise SystemExit('pdftoppm failed: %s' % err.decode('utf-8', 'ignore')[:200])
+        else:
+            render_pymupdf(pdf, out_dir, dpi, width, lo, hi)
     pages = sorted(glob.glob(os.path.join(out_dir, 'p*.png')))
     left = n - len(pages)
     print('rendered %d of %d pages at %d dpi%s'

@@ -67,11 +67,25 @@ the missing metadata against Open Library, fix covers and the table of contents,
 convert, then embed recaps. Finished books land in `Ready for Kobo`; the
 originals move to `Imported/` so the next run does not rebuild them.
 
+A PDF is converted on the way in: `pdf_route.py` measures text density and sends
+it to `pdf2epub.py` to be reflowed or `pdf2kepub.py` to be photographed. Its
+title and author come from the file's own metadata, cleaned, and are logged as
+derived - research fills blanks but never corrects a wrong value, so that log
+line is the only place a bad one shows up. Other formats are still converted by
+hand.
+
 Recaps run **last**, on the finished kepub, because `apply_metadata`, `kepubify`
 and `slim` each repackage the archive and would drop `EPUB/recaps/`.
 
+A source file leaves the inbox only once a book it produced is a key in the plan
+the build consumed. Anything that failed to convert, or that produced nothing,
+stays where it is.
+
 It does not copy anything to the Kobo. A rewrite on the device costs a reading
 position, so that step stays manual.
+
+`KOBO_INBOX` and `KOBO_STATE_ROOT` point the whole thing somewhere else, which is
+how it gets tested without touching a real library.
 
 ## What it gets wrong
 

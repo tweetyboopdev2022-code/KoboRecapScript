@@ -1,11 +1,41 @@
 #!/usr/bin/env python3
 """Generate a clean typographic cover for books whose source file has no cover art."""
+import os
+import sys
+
 from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1400, 2100
-SERIF = '/usr/share/fonts/truetype/google-fonts/Lora-Variable.ttf'
-SERIF_I = '/usr/share/fonts/truetype/google-fonts/Lora-Italic-Variable.ttf'
-SANS = '/usr/share/fonts/truetype/google-fonts/Poppins-Bold.ttf'
+
+# The Google-fonts paths below exist only on the Linux container. On macOS this
+# raised before drawing anything, which made makecover the one repair with no
+# working fallback for a converted PDF.
+FACES = {
+    'SERIF': ['/usr/share/fonts/truetype/google-fonts/Lora-Variable.ttf',
+              '/System/Library/Fonts/Supplemental/Georgia.ttf',
+              '/System/Library/Fonts/Supplemental/Times New Roman.ttf',
+              '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'],
+    'SERIF_I': ['/usr/share/fonts/truetype/google-fonts/Lora-Italic-Variable.ttf',
+                '/System/Library/Fonts/Supplemental/Georgia Italic.ttf',
+                '/System/Library/Fonts/Supplemental/Times New Roman Italic.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf'],
+    'SANS': ['/usr/share/fonts/truetype/google-fonts/Poppins-Bold.ttf',
+             '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+             '/System/Library/Fonts/Supplemental/Arial.ttf',
+             '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'],
+}
+
+
+def pick(role):
+    for path in FACES[role]:
+        if os.path.exists(path):
+            return path
+    sys.exit('no %s font found. Looked for:\n  %s' % (role, '\n  '.join(FACES[role])))
+
+
+SERIF = pick('SERIF')
+SERIF_I = pick('SERIF_I')
+SANS = pick('SANS')
 
 
 def wrap(draw, text, font, maxw):

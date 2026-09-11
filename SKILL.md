@@ -133,12 +133,35 @@ localhost.
 
 ## Books that are not EPUBs
 
-`audit` lists them; it does not convert them. Say what you found rather than letting them fall out of the batch - two Cormoran Strike novels went missing that way.
+`audit` only ever sees EPUBs and does not convert anything. **PDFs are the one
+format `kobo_import.sh` converts on its own**; the rest still need a hand. Say
+what you found rather than letting them fall out of the batch - two Cormoran
+Strike novels went missing that way, and until recently the importer repeated
+the trick by retiring an unconverted file to `Imported/` as though it had been
+built.
 
+- **A PDF**: `pdf_route.py` decides. Median characters a page at or above 1200
+  means a novel, so `pdf2epub.py`, reflowed; below that it is a picture book or
+  a comic, so `pdf2kepub.py`, fixed-layout. Getting this wrong is not cosmetic
+  either way: 900 fixed page images on a six-inch screen cannot change their
+  font size, and a picture book reflowed into text loses the book. A scan with
+  no text layer reads as 0 characters and routes to fixed-layout, which is
+  right - there is nothing to reflow until someone OCRs it.
 - **`.azw3` / `.mobi`**: `pip3 install mobi`, then `mobi.extract(path)` returns a folder whose `mobi8/` already holds a usable EPUB. PyPI works from the user's machine even though image and binary downloads do not.
 - **`.fb2`**: `fb2epub.py`. Confirm the word count survives, against the source's own text minus its base64 `<binary>` blocks.
-- **A PDF of a picture book or comic**: `pdf2kepub.py`, fixed-layout.
-- **A PDF of a novel**: `pdf2epub.py`, reflowed. 900 fixed page images on a six-inch screen cannot change their font size and cannot be read comfortably.
+
+Rendering needs poppler (`pdftoppm`, `pdfinfo`) or **pymupdf**, and only pymupdf
+is installed on the Mac. `pdf2kepub.py` falls back to it automatically, single
+process, so `--render-chunk` rather than `--render-jobs` is what keeps a long
+book inside one call there.
+
+**A PDF's title and author are a guess and must be treated as one.** Both
+converters require them, so `pdf_route.py --meta` takes the file's embedded pair,
+strips the catalogue noise (`Pendergrass, Daphne, author` becomes
+`Daphne Pendergrass`) and falls back to the filename. The importer logs both
+under "derived from the PDF, check it". `research_kobo.py` will not correct
+them - it only fills blanks - so a wrong one survives all the way to the device
+unless somebody reads the log.
 
 Before converting any PDF, check whether it is really one book: `plan_omnibus.py <file.pdf>` reports page-number restarts and running-head changes. A PDF bundle has no manifest to give it away, so nothing else will catch it.
 
