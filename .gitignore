@@ -1,0 +1,10 @@
+*.epub
+*.pyc
+*.sqlite
+.DS_Store
+__pycache__/
+aside*/
+books/
+legacy/scripts/EPUB/
+out/
+raw/
