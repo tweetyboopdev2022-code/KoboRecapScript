@@ -1,0 +1,7 @@
+# Copy to config.local.sh and fill in. That copy is gitignored, which is the
+# point: the repo names no host, and this machine still knows where the model
+# lives. Without it the pipeline talks to localhost, which may be running
+# Ollama without the model the recaps ask for - and a missing model looks like
+# a book with no recaps rather than an error.
+export RECAP_ENDPOINT="http://your-ollama-host:11434/api/generate"
+export RECAP_MODEL="llama3.1:latest"

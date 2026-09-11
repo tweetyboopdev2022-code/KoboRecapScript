@@ -36,11 +36,26 @@ def get(url):
     return None
 
 
+# A surname can be more than the last word. Taking only the last word turns
+# "Ursula K. Le Guin" into "Guin, Ursula K. Le", which sorts her under G.
+# The particle stays attached to the surname rather than trailing it, so this
+# gives "de Maupassant, Guy" where a French library would write
+# "Maupassant, Guy de". That is a deliberate trade: keeping it attached is
+# consistent across languages and never splits a compound surname, and the
+# convention differs by language in a way the name alone does not reveal.
+PARTICLES = {"de", "del", "della", "der", "den", "di", "da", "das", "dos", "du",
+             "la", "le", "van", "von", "ten", "ter", "af", "av", "bin", "ibn",
+             "al", "st", "saint"}
+
+
 def sort_name(display):
     parts = display.split()
     if len(parts) < 2:
         return display
-    return "%s, %s" % (parts[-1], " ".join(parts[:-1]))
+    cut = len(parts) - 1
+    while cut > 1 and parts[cut - 1].lower().strip(".") in PARTICLES:
+        cut -= 1
+    return "%s, %s" % (" ".join(parts[cut:]), " ".join(parts[:cut]))
 
 
 def series_from_filename(name):
@@ -90,7 +105,17 @@ def main():
         sys.exit("expected the plan.template.json schema: a dict keyed by filename")
 
     filled, gaps, skipped = {}, {}, 0
+    sorted_fixed = 0
     for name, entry in plan.items():
+        # A converted book carries a creator with no opf:file-as, and
+        # verify_epubs blocks the build over it. Deriving the sort form is a
+        # transformation of what is already there, not a lookup, so it happens
+        # before anything decides whether this entry needs the network at all.
+        for pair in entry.get("authors") or []:
+            if isinstance(pair, list) and len(pair) == 2 and pair[0] and not pair[1]:
+                pair[1] = sort_name(pair[0])
+                sorted_fixed += 1
+
         wanted = [k for k in ("title", "series", "series_index", "date", "isbn",
                               "description", "language") if not entry.get(k)]
         # The one field worth checking even when filled. A sideloaded book
@@ -171,6 +196,8 @@ def main():
     json.dump(plan, open(path, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 
     print()
+    if sorted_fixed:
+        print("derived %d author sort name(s) that were missing" % sorted_fixed)
     print("%d entries already complete, %d filled, %d still have gaps"
           % (skipped, len(filled), len(gaps)))
     if gaps:
@@ -183,4 +210,5 @@ def main():
               "by series until that is filled by hand." % len(missing_series))
 
 
-main()
+if __name__ == "__main__":
+    main()

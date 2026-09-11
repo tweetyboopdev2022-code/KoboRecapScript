@@ -16,6 +16,10 @@ READY="$INBOX/Ready for Kobo"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILL="${KOBO_LIBRARY_DIR:-$HERE/library}"
 RECAP="${KOBO_RECAP_DIR:-$HERE/pipeline}"
+# Machine-local settings: which Ollama host holds the model, mainly. It is
+# gitignored, so the repo carries no address and this box still works.
+[ -f "$HERE/config.local.sh" ] && . "$HERE/config.local.sh"
+
 ROOT="${KOBO_STATE_ROOT:-$HOME/kobo-backups}"
 STATE="$ROOT/import"
 LOGDIR="$ROOT/import-logs"
@@ -73,6 +77,20 @@ SRCMAP="$RUN/sources.tsv"
 mkdir -p "$STAGE" "$CONV"
 : > "$SRCMAP"
 
+# A converter can exit 0 having written nothing, so staging reports whether it
+# actually found a book rather than trusting the return code.
+stage_converted() {
+    local src_base="$1" dir="$2" out ob n=0
+    for out in "$dir"/*.epub; do
+        [ -f "$out" ] || continue
+        ob=$(basename "$out")
+        cp -p "$out" "$STAGE/$ob"
+        printf '%s\t%s\n' "$src_base" "$ob" >> "$SRCMAP"
+        n=$((n + 1))
+    done
+    [ "$n" -gt 0 ]
+}
+
 for f in "${new[@]}"; do
     [ -f "$f" ] || continue
     base=$(basename "$f")
@@ -101,13 +119,33 @@ for f in "${new[@]}"; do
         say "  author '$pauthor'   (derived from the PDF, check it)"
         d="$CONV/${base%.*}"
         mkdir -p "$d"
-        if python3 "$SKILL/$conv" "$f" --out "$d" --title "$ptitle" --author "$pauthor" >> "$LOG" 2>&1; then
-            for out in "$d"/*.epub; do
-                [ -f "$out" ] || continue
-                ob=$(basename "$out")
-                cp -p "$out" "$STAGE/$ob"
-                printf '%s\t%s\n' "$base" "$ob" >> "$SRCMAP"
-            done
+        if python3 "$SKILL/$conv" "$f" --out "$d" --title "$ptitle" --author "$pauthor" >> "$LOG" 2>&1 \
+           && stage_converted "$base" "$d"; then
+            :
+        else
+            say "  conversion failed, leaving $base in the inbox"
+        fi
+        ;;
+    azw3|mobi)
+        # KF8 is an EPUB in another wrapper and carries its own metadata, so
+        # unlike a PDF there is nothing to guess and nothing to flag.
+        say "$base -> mobi2epub.py"
+        d="$CONV/${base%.*}"
+        mkdir -p "$d"
+        if python3 "$SKILL/mobi2epub.py" "$f" --out "$d" >> "$LOG" 2>&1 \
+           && stage_converted "$base" "$d"; then
+            :
+        else
+            say "  conversion failed, leaving $base in the inbox"
+        fi
+        ;;
+    fb2)
+        say "$base -> fb2epub.py"
+        d="$CONV/${base%.*}"
+        mkdir -p "$d"
+        if python3 "$SKILL/fb2epub.py" "$f" "$d/${base%.*}.epub" >> "$LOG" 2>&1 \
+           && stage_converted "$base" "$d"; then
+            :
         else
             say "  conversion failed, leaving $base in the inbox"
         fi

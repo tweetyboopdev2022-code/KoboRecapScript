@@ -133,12 +133,11 @@ localhost.
 
 ## Books that are not EPUBs
 
-`audit` only ever sees EPUBs and does not convert anything. **PDFs are the one
-format `kobo_import.sh` converts on its own**; the rest still need a hand. Say
-what you found rather than letting them fall out of the batch - two Cormoran
-Strike novels went missing that way, and until recently the importer repeated
-the trick by retiring an unconverted file to `Imported/` as though it had been
-built.
+`audit` only ever sees EPUBs and does not convert anything. **`kobo_import.sh`
+converts PDF, AZW3, MOBI and FB2 on the way in**, so audit is handed EPUBs and
+nothing falls out of the batch - two Cormoran Strike novels went missing that
+way, and the importer used to repeat the trick by retiring an unconverted file
+to `Imported/` as though it had been built.
 
 - **A PDF**: `pdf_route.py` decides. Median characters a page at or above 1200
   means a novel, so `pdf2epub.py`, reflowed; below that it is a picture book or
@@ -147,13 +146,29 @@ built.
   font size, and a picture book reflowed into text loses the book. A scan with
   no text layer reads as 0 characters and routes to fixed-layout, which is
   right - there is nothing to reflow until someone OCRs it.
-- **`.azw3` / `.mobi`**: `pip3 install mobi`, then `mobi.extract(path)` returns a folder whose `mobi8/` already holds a usable EPUB. PyPI works from the user's machine even though image and binary downloads do not.
-- **`.fb2`**: `fb2epub.py`. Confirm the word count survives, against the source's own text minus its base64 `<binary>` blocks.
+- **`.azw3` / `.mobi`**: `mobi2epub.py`. KF8 is an EPUB in another wrapper and
+  carries its own metadata, so unlike a PDF there is nothing to guess. An older
+  MOBI 6 has no KF8 part and unpacks to loose HTML; it fails and says so rather
+  than staging something broken. Needs `pip3 install --user mobi`, and PyPI does
+  work from the user's machine even though image and binary downloads do not.
+- **`.fb2`**: `fb2epub.py <in.fb2> <out.epub>` - positional, not `--out`, unlike
+  everything else here. Confirm the word count survives, against the source's own
+  text minus its base64 `<binary>` blocks. `.fb2.zip` is **not** handled; the
+  glob does not match it and nothing unpacks it.
 
 Rendering needs poppler (`pdftoppm`, `pdfinfo`) or **pymupdf**, and only pymupdf
 is installed on the Mac. `pdf2kepub.py` falls back to it automatically, single
 process, so `--render-chunk` rather than `--render-jobs` is what keeps a long
 book inside one call there.
+
+**A converted book usually has no author sort name**, because `opf:file-as` is
+absent from what FB2 and KF8 produce, and `verify_epubs` blocks the build over
+it. `research_kobo.py` derives it before deciding whether it needs the network
+at all, since that is a transformation of what is there rather than a lookup.
+The surname takes any particle with it, so "Ursula K. Le Guin" sorts under Le
+Guin rather than Guin, at the cost of writing "de Maupassant, Guy" where a
+French library writes "Maupassant, Guy de". Consistency was worth more than
+per-language correctness the name alone cannot reveal.
 
 **A PDF's title and author are a guess and must be treated as one.** Both
 converters require them, so `pdf_route.py --meta` takes the file's embedded pair,

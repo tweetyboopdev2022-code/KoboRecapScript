@@ -5,6 +5,7 @@
 __pycache__/
 aside*/
 books/
+config.local.sh
 legacy/scripts/EPUB/
 out/
 raw/

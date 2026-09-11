@@ -17,7 +17,7 @@ import dedupe_cast
 
 ENDPOINT = os.environ.get("RECAP_ENDPOINT",
                           "http://localhost:11434/api/generate")
-MODEL = "llama3.1:latest"
+MODEL = os.environ.get("RECAP_MODEL", "llama3.1:latest")
 MINCHARS = 2000
 RAW = os.path.join(os.path.dirname(os.path.abspath(__file__)), "raw")
 

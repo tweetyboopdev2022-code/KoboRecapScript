@@ -67,12 +67,23 @@ the missing metadata against Open Library, fix covers and the table of contents,
 convert, then embed recaps. Finished books land in `Ready for Kobo`; the
 originals move to `Imported/` so the next run does not rebuild them.
 
-A PDF is converted on the way in: `pdf_route.py` measures text density and sends
-it to `pdf2epub.py` to be reflowed or `pdf2kepub.py` to be photographed. Its
-title and author come from the file's own metadata, cleaned, and are logged as
-derived - research fills blanks but never corrects a wrong value, so that log
-line is the only place a bad one shows up. Other formats are still converted by
-hand.
+Four formats are converted on the way in:
+
+| in | how |
+|---|---|
+| `.pdf` | `pdf_route.py` measures text density, then `pdf2epub.py` to reflow a novel or `pdf2kepub.py` to photograph a picture book |
+| `.azw3` `.mobi` | `mobi2epub.py`, which unwraps the KF8 part |
+| `.fb2` | `fb2epub.py` |
+
+Only a PDF needs its title and author guessed - the others carry their own. They
+come from the file's embedded metadata, cleaned, and are logged as derived:
+research fills blanks but never corrects a wrong value, so that log line is the
+only place a bad one shows up. `.fb2.zip` and MOBI 6 are not handled and say so.
+
+Recaps need a host holding the model. Copy `config.local.sh.example` to
+`config.local.sh`, which is gitignored, and put the address there. Without it
+the pipeline talks to localhost, and an Ollama running there without the right
+model looks like a book with no recaps rather than an error.
 
 A book that arrives with no cover and nothing usable inside gets a typographic
 one generated during the build, which is the normal case for a reflowed PDF. It
