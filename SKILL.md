@@ -187,7 +187,14 @@ The same invariant belongs in every repair script here, and two more bugs of exa
 
 When a format declares its cover explicitly - FB2's `<coverpage>`, an OPF `<meta name="cover">` - read it. Guessing (first image, largest id, anything containing "cover") picks up an 18x18 ornament, because these formats store images in no useful order.
 
-Use `apply_metadata.py --cover-for` only where the source genuinely has none, and **do not pass a generated cover off as the real one when reporting back**.
+`build` now does this for itself: it asks `check_covers.py --list-missing` which
+books have nothing to promote, and passes exactly those to `apply_metadata.py
+--cover-for`. "Missing" means no cover declared and nothing usable inside, never
+merely a poor one - generating over a real jacket trades a photograph for
+typography. The generated file lands as `cover_generated.jpg`, which
+`check_covers.py` recognises later and keeps flagging as wanting a real jacket.
+
+**Do not pass a generated cover off as the real one when reporting back.**
 
 ## Sizes, measured
 

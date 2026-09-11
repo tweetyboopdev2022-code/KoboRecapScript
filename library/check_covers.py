@@ -222,6 +222,9 @@ def main(argv):
     ap.add_argument("--fix", action="store_true",
                     help="when the declared cover is known filler, promote the best "
                          "real jacket already inside the file")
+    ap.add_argument("--list-missing", action="store_true",
+                    help="print only the filenames with no usable cover, one a "
+                         "line, for --cover-for to consume")
     ap.add_argument("--threshold", type=int, default=6,
                     help="max hash distance to count as the same placeholder (default 6)")
     a = ap.parse_args(argv)
@@ -279,6 +282,15 @@ def main(argv):
             issues.append((f, "same cover image as %s" % seen[hh][:40]))
         else:
             seen[hh] = f
+
+    if a.list_missing:
+        # Only the books with nothing to promote from inside. A poor cover is
+        # still a real one, and generating over it would trade a jacket for
+        # typography.
+        for f, why in issues:
+            if why == "no usable cover":
+                print(f)
+        return 0
 
     for f, why in issues:
         print("  %-58s %s" % (f[:58], why))

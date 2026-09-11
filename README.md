@@ -74,6 +74,10 @@ derived - research fills blanks but never corrects a wrong value, so that log
 line is the only place a bad one shows up. Other formats are still converted by
 hand.
 
+A book that arrives with no cover and nothing usable inside gets a typographic
+one generated during the build, which is the normal case for a reflowed PDF. It
+is marked as generated so it keeps showing up as wanting a real jacket.
+
 Recaps run **last**, on the finished kepub, because `apply_metadata`, `kepubify`
 and `slim` each repackage the archive and would drop `EPUB/recaps/`.
 

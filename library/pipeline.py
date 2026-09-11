@@ -335,7 +335,22 @@ def build(work, plan, out, slim_seconds):
 
     # 2. Metadata into the output folder. Everything after this works on out/.
     if not stage_done(st, "metadata"):
-        r = run("apply_metadata.py", work, "--plan", plan_path, "--out", out)
+        # A converted PDF or a stripped sideload can arrive with no cover and
+        # nothing inside to promote, and the device then shows a grey rectangle.
+        # apply_metadata can draw one, but only for files it is told about.
+        cover_for = []
+        if have("check_covers.py"):
+            c = run("check_covers.py", work, "--list-missing", capture=True)
+            if c.returncode == 0:
+                cover_for = [ln.strip() for ln in (c.stdout or "").splitlines()
+                             if ln.strip()]
+        if cover_for:
+            print("generating a cover for %d book(s) with none: %s"
+                  % (len(cover_for), ", ".join(cover_for)))
+        args = [work, "--plan", plan_path, "--out", out]
+        for fn in cover_for:
+            args += ["--cover-for", fn]
+        r = run("apply_metadata.py", *args)
         if r.returncode != 0:
             return 1
         mark_stage(work, st, "metadata")
