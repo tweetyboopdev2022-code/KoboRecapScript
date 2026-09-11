@@ -67,15 +67,45 @@ def text_of(el):
     return re.sub(r"\s+", " ", "".join(el.itertext())).strip() if el is not None else ""
 
 
+def read_fb2(src):
+    """The bytes of the FB2 document, whether or not it arrived in a zip.
+
+    FB2 is handed out both ways and the zipped form is the more common of the
+    two, so refusing it means refusing most of the format. A zip holding
+    anything but exactly one FB2 is rejected rather than guessed at: several
+    means it is a bundle nobody asked this to split, and none means it is some
+    other archive that happens to be named alike.
+    """
+    if not zipfile.is_zipfile(src):
+        return open(src, "rb").read()
+    with zipfile.ZipFile(src) as z:
+        members = [n for n in z.namelist()
+                   if n.lower().endswith(".fb2") and not n.startswith("__MACOSX/")]
+        if len(members) != 1:
+            raise SystemExit(
+                "%s holds %d .fb2 files, expected exactly one"
+                % (os.path.basename(src), len(members)))
+        return z.read(members[0])
+
+
+def base_name(src):
+    """The filename without its extension, counting .fb2.zip as one."""
+    stem = os.path.basename(src)
+    for ext in (".fb2.zip", ".fb2", ".zip"):
+        if stem.lower().endswith(ext):
+            return stem[:-len(ext)]
+    return os.path.splitext(stem)[0]
+
+
 def convert(src, dst):
-    raw = open(src, "rb").read()
+    raw = read_fb2(src)
     root = ET.fromstring(raw)
     desc = root.find(FB + "description")
     ti = desc.find(FB + "title-info") if desc is not None else None
 
     def g(path):
         return text_of(ti.find(path)) if ti is not None else ""
-    title = g(FB + "book-title") or os.path.splitext(os.path.basename(src))[0]
+    title = g(FB + "book-title") or base_name(src)
     au = ti.find(FB + "author") if ti is not None else None
     author = " ".join(x for x in [text_of(au.find(FB + "first-name")) if au is not None else "",
                                   text_of(au.find(FB + "last-name")) if au is not None else ""] if x)

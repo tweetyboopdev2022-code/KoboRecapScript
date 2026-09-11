@@ -39,7 +39,8 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 say() { printf '%s  %s\n' "$(date '+%H:%M:%S')" "$*" >> "$LOG"; }
 
 shopt -s nullglob
-new=("$INBOX"/*.epub "$INBOX"/*.azw3 "$INBOX"/*.mobi "$INBOX"/*.fb2 "$INBOX"/*.pdf)
+new=("$INBOX"/*.epub "$INBOX"/*.azw3 "$INBOX"/*.mobi "$INBOX"/*.fb2
+      "$INBOX"/*.fb2.zip "$INBOX"/*.pdf)
 [ ${#new[@]} -eq 0 ] && exit 0
 
 # WatchPaths fires the moment a file appears, which is while a large book is
@@ -94,12 +95,12 @@ stage_converted() {
 for f in "${new[@]}"; do
     [ -f "$f" ] || continue
     base=$(basename "$f")
-    case "$(printf '%s' "${base##*.}" | tr '[:upper:]' '[:lower:]')" in
-    epub)
+    case "$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')" in
+    *.epub)
         cp -p "$f" "$STAGE/$base"
         printf '%s\t%s\n' "$base" "$base" >> "$SRCMAP"
         ;;
-    pdf)
+    *.pdf)
         meta=$(python3 "$SKILL/pdf_route.py" --meta --quiet "$f" 2>> "$LOG") || meta=""
         route=$(printf '%s' "$meta" | cut -f1)
         ptitle=$(printf '%s' "$meta" | cut -f2)
@@ -126,7 +127,7 @@ for f in "${new[@]}"; do
             say "  conversion failed, leaving $base in the inbox"
         fi
         ;;
-    azw3|mobi)
+    *.azw3|*.mobi)
         # KF8 is an EPUB in another wrapper and carries its own metadata, so
         # unlike a PDF there is nothing to guess and nothing to flag.
         say "$base -> mobi2epub.py"
@@ -139,11 +140,14 @@ for f in "${new[@]}"; do
             say "  conversion failed, leaving $base in the inbox"
         fi
         ;;
-    fb2)
+    *.fb2|*.fb2.zip)
+        # fb2epub.py unwraps the zip itself, so both spellings take one branch.
         say "$base -> fb2epub.py"
-        d="$CONV/${base%.*}"
+        stem="${base%.zip}"
+        stem="${stem%.fb2}"
+        d="$CONV/$stem"
         mkdir -p "$d"
-        if python3 "$SKILL/fb2epub.py" "$f" "$d/${base%.*}.epub" >> "$LOG" 2>&1 \
+        if python3 "$SKILL/fb2epub.py" "$f" "$d/$stem.epub" >> "$LOG" 2>&1 \
            && stage_converted "$base" "$d"; then
             :
         else

@@ -134,7 +134,8 @@ localhost.
 ## Books that are not EPUBs
 
 `audit` only ever sees EPUBs and does not convert anything. **`kobo_import.sh`
-converts PDF, AZW3, MOBI and FB2 on the way in**, so audit is handed EPUBs and
+converts PDF, AZW3, MOBI, FB2 and zipped FB2 on the way in**, so audit is handed
+EPUBs and
 nothing falls out of the batch - two Cormoran Strike novels went missing that
 way, and the importer used to repeat the trick by retiring an unconverted file
 to `Imported/` as though it had been built.
@@ -151,10 +152,17 @@ to `Imported/` as though it had been built.
   MOBI 6 has no KF8 part and unpacks to loose HTML; it fails and says so rather
   than staging something broken. Needs `pip3 install --user mobi`, and PyPI does
   work from the user's machine even though image and binary downloads do not.
-- **`.fb2`**: `fb2epub.py <in.fb2> <out.epub>` - positional, not `--out`, unlike
-  everything else here. Confirm the word count survives, against the source's own
-  text minus its base64 `<binary>` blocks. `.fb2.zip` is **not** handled; the
-  glob does not match it and nothing unpacks it.
+- **`.fb2` / `.fb2.zip`**: `fb2epub.py <in> <out.epub>` - positional, not
+  `--out`, unlike everything else here. It unwraps the zip itself, since the
+  zipped form is the more common of the two. A zip holding anything but exactly
+  one `.fb2` is refused rather than guessed at: several means a bundle nobody
+  asked this to split, none means some other archive named alike. `__MACOSX/`
+  forks are ignored. Confirm the word count survives, against the source's own
+  text minus its base64 `<binary>` blocks.
+
+A double extension is why the importer matches the whole filename rather than
+the last extension: `book.fb2.zip` ends in `zip`, which says nothing about what
+is inside it.
 
 Rendering needs poppler (`pdftoppm`, `pdfinfo`) or **pymupdf**, and only pymupdf
 is installed on the Mac. `pdf2kepub.py` falls back to it automatically, single

@@ -73,12 +73,12 @@ Four formats are converted on the way in:
 |---|---|
 | `.pdf` | `pdf_route.py` measures text density, then `pdf2epub.py` to reflow a novel or `pdf2kepub.py` to photograph a picture book |
 | `.azw3` `.mobi` | `mobi2epub.py`, which unwraps the KF8 part |
-| `.fb2` | `fb2epub.py` |
+| `.fb2` `.fb2.zip` | `fb2epub.py`, which unwraps the zip itself |
 
 Only a PDF needs its title and author guessed - the others carry their own. They
 come from the file's embedded metadata, cleaned, and are logged as derived:
 research fills blanks but never corrects a wrong value, so that log line is the
-only place a bad one shows up. `.fb2.zip` and MOBI 6 are not handled and say so.
+only place a bad one shows up. A MOBI 6 with no KF8 part, and a zip holding anything but exactly one `.fb2`, are refused rather than guessed at.
 
 Recaps need a host holding the model. Copy `config.local.sh.example` to
 `config.local.sh`, which is gitignored, and put the address there. Without it
